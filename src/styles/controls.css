@@ -1,0 +1,53 @@
+.controls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.slider-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.95rem;
+}
+
+.slider-value {
+  font-weight: 600;
+  color: var(--color-accent);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+}
+
+.slider-unit {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-subtle);
+}
+
+.slider-track {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.slider-input {
+  accent-color: var(--color-accent);
+  width: 100%;
+}
+
+.slider-number-input {
+  width: 100%;
+}
+
+.slider-description {
+  font-size: 0.8rem;
+  color: var(--color-subtle);
+}

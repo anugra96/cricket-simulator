@@ -1,0 +1,30 @@
+export const STRINGS = {
+  app: {
+    fieldTitle: 'Shot Visualisation',
+    fieldSubtitle: 'Follow the ball path with dynamic boundary and intercept highlights.',
+    peakHeight: 'Peak Height',
+    distanceTravelled: 'Distance Traveled',
+    hangTime: 'Hang Time',
+  },
+  controls: {
+    shotHeader: 'Shot Controls',
+    fieldHeader: 'Field Controls',
+    resetShot: 'Reset Shot',
+    resetField: 'Reset Field',
+    batSpeed: 'Bat Speed',
+    azimuth: 'Azimuth',
+    azimuthDescription: 'Negative values target leg-side, positive values target off-side.',
+    elevation: 'Elevation',
+    elevationDescription: 'Higher elevation promotes lofted drives.',
+    spin: 'Spin',
+    boundaryRadius: 'Boundary Radius',
+    groundFriction: 'Ground Friction',
+    pickupBuffer: 'Pickup Buffer (s)',
+  },
+  outcome: {
+    boundaryTime: 'Boundary Time',
+    intercept: 'Intercept',
+    fielder: 'Fielder',
+    hint: 'Try tweaking elevation or bat speed to explore lofted drives and ground rollers.',
+  },
+};
