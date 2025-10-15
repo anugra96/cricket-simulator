@@ -7,7 +7,9 @@ import type {
 } from '@types';
 import { meters, seconds } from '@types';
 
-const DEFAULT_BUFFER = seconds(0.3);
+const DEFAULT_BUFFER = seconds(0.1);
+const RUN_SPEED_FLOOR = 3.2;
+const MAX_AIR_HEIGHT_FOR_CHASE = 1.2;
 
 const distance2D = (sample: SimulationSample, fielder: Fielder): number =>
   Math.hypot(
@@ -15,32 +17,12 @@ const distance2D = (sample: SimulationSample, fielder: Fielder): number =>
     (sample.position.y as number) - (fielder.position.y as number),
   );
 
-const timeToCoverDistance = (
-  distance: number,
-  maxSpeed: number,
-  acceleration: number,
-): number => {
-  if (distance <= 0) {
-    return 0;
-  }
-
-  const timeToMaxSpeed = maxSpeed / Math.max(acceleration, 0.1);
-  const distanceDuringAcceleration = 0.5 * Math.max(acceleration, 0.1) * timeToMaxSpeed ** 2;
-
-  if (distance <= distanceDuringAcceleration) {
-    return Math.sqrt((2 * distance) / Math.max(acceleration, 0.1));
-  }
-
-  const remainingDistance = distance - distanceDuringAcceleration;
-  return timeToMaxSpeed + remainingDistance / maxSpeed;
-};
-
 const canAttemptIntercept = (sample: SimulationSample): boolean => {
   if (sample.phase === 'outOfPlay') {
     return false;
   }
-  if (sample.phase === 'flight') {
-    return (sample.position.z as number) <= 4;
+  if (sample.phase === 'flight' && (sample.position.z as number) > MAX_AIR_HEIGHT_FOR_CHASE) {
+    return false;
   }
   return true;
 };
@@ -55,7 +37,7 @@ export const earliestIntercept = (
   }
 
   const boundaryIndex = path.findIndex((sample) => sample.event?.startsWith('boundary'));
-  const cutoffIndex = boundaryIndex >= 0 ? boundaryIndex : path.length;
+  const cutoffIndex = boundaryIndex >= 0 ? boundaryIndex + 1 : path.length;
   const additionalBuffer = buffer as number;
 
   let bestResult: InterceptionResult | undefined;
@@ -69,24 +51,27 @@ export const earliestIntercept = (
 
     const ballTime = sample.time as number;
 
-    fielders.forEach((fielder) => {
-      const distance = distance2D(sample, fielder);
-      const travelTime = timeToCoverDistance(
-        distance,
-        fielder.maxSpeed as number,
-        fielder.acceleration as number,
-      );
-      const arrivalTime =
-        (fielder.reactionTime as number) +
-        travelTime +
-        (fielder.pickupBuffer as number) +
-        additionalBuffer;
+    for (const fielder of fielders) {
+      const reaction = fielder.reactionTime as number;
+      const pickup = fielder.pickupBuffer as number;
+      const runSpeed = Math.max(fielder.maxSpeed as number, RUN_SPEED_FLOOR);
 
-      if (arrivalTime <= ballTime && arrivalTime < bestTime) {
-        bestTime = arrivalTime;
+      const timeAvailable = ballTime - reaction;
+      if (timeAvailable <= 0) {
+        continue;
+      }
+
+      const distance = distance2D(sample, fielder);
+      if (distance > runSpeed * timeAvailable) {
+        continue;
+      }
+
+      const interceptTime = ballTime + pickup + additionalBuffer;
+      if (interceptTime < bestTime) {
+        bestTime = interceptTime;
         bestResult = {
           fielderId: fielder.id,
-          interceptTime: seconds(arrivalTime),
+          interceptTime: seconds(interceptTime),
           interceptPosition: {
             x: meters(sample.position.x as number),
             y: meters(sample.position.y as number),
@@ -94,7 +79,7 @@ export const earliestIntercept = (
           reachedBoundary: false,
         };
       }
-    });
+    }
 
     if (bestResult) {
       break;

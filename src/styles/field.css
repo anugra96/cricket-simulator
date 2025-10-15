@@ -81,3 +81,25 @@
   fill: rgba(34, 197, 94, 0.65);
   stroke: rgba(34, 197, 94, 0.85);
 }
+
+.player.fielder.is-draggable {
+  cursor: grab;
+}
+
+.player.fielder.is-draggable circle {
+  transition: transform var(--transition-fast), fill var(--transition-fast);
+}
+
+.player.fielder.is-draggable:hover circle,
+.player.fielder.is-draggable:focus-visible circle {
+  fill: rgba(34, 197, 94, 0.8);
+}
+
+.player.fielder.is-dragging {
+  cursor: grabbing;
+}
+
+.player.fielder.is-dragging circle {
+  fill: rgba(34, 197, 94, 0.95);
+  stroke-width: 0.6;
+}

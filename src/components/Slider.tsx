@@ -37,13 +37,6 @@ export const Slider = ({
     onChange(Number.isNaN(nextValue) ? value : nextValue);
   };
 
-  const handleNumberChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextValue = Number(event.target.value);
-    if (!Number.isNaN(nextValue)) {
-      onChange(nextValue);
-    }
-  };
-
   const displayValue = formatValue ? formatValue(value) : value.toFixed(1);
 
   return (
@@ -66,17 +59,6 @@ export const Slider = ({
           value={value}
           onChange={handleRangeChange}
           aria-describedby={description ? descriptionId : undefined}
-          disabled={disabled}
-        />
-        <input
-          className="slider-number-input"
-          type="number"
-          min={min}
-          max={max}
-          step={step}
-          value={Number.isNaN(value) ? '' : value}
-          onChange={handleNumberChange}
-          aria-label={`${label} numeric input`}
           disabled={disabled}
         />
       </div>

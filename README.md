@@ -35,6 +35,7 @@ src/
 - **Physics engine:** `sim/physics.ts` splits the ball path into flight and roll phases, applying drag, bounce energy retention, and friction-based exponential decay. Each simulation sample records time, position, speed, and event tags for downstream consumers.
 - **Fielding model:** `sim/interception.ts` approximates chase times with reaction delays, acceleration envelopes, and configurable pickup buffers to find the earliest viable intercept.
 - **Run estimation:** `sim/runsEstimator.ts` maps intercept/boundary timing to outcomes using calibrated running windows and exposes constants for future tuning.
+- **Dismissals:** This MVP focuses on run outcomes; wicket scenarios, LBW, and catch logic are not yet simulated.
 - **Hooks:** `useShotState`, `useSimulation`, and `useResponsiveScale` manage state, memoise expensive calculations, and keep the SVG field responsive to layout changes.
 - **Accessibility:** Controls include visible focus states, descriptive labels, and ARIA hints. Outcome summaries announce changes via `aria-live` for assistive tech.
 

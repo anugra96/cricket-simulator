@@ -1,22 +1,17 @@
 :root {
   color-scheme: dark;
-  --color-bg: #0b1120;
-  --color-surface: #111827;
-  --color-surface-alt: #1f2937;
-  --color-border: #1e3a8a;
-  --color-card-border: rgba(148, 163, 184, 0.2);
+  --color-bg: #0b1220;
+  --color-surface: rgba(17, 24, 39, 0.6);
+  --color-border: rgba(148, 163, 184, 0.25);
   --color-text: #e2e8f0;
   --color-subtle: #94a3b8;
   --color-accent: #38bdf8;
-  --color-accent-strong: #facc15;
-  --color-danger: #f87171;
-  --shadow-elevated: 0 24px 48px rgba(15, 23, 42, 0.45);
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 6px;
   --transition-fast: 120ms ease;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  line-height: 1.6;
+  line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -33,9 +28,13 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, rgba(14, 165, 233, 0.12), transparent 65%),
-    var(--color-bg);
+  background: var(--color-bg);
   color: var(--color-text);
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
 }
 
 a {
@@ -51,16 +50,11 @@ select {
 }
 
 button {
-  border: 1px solid var(--color-card-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: rgba(148, 163, 184, 0.12);
-  padding: 0.5rem 1rem;
+  background: transparent;
+  padding: 0.4rem 0.75rem;
   cursor: pointer;
-  transition: background var(--transition-fast), border var(--transition-fast);
-}
-
-button:hover {
-  background: rgba(148, 163, 184, 0.22);
 }
 
 button:focus-visible {
@@ -71,15 +65,15 @@ button:focus-visible {
 input,
 select {
   border-radius: var(--radius-sm);
-  border: 1px solid var(--color-card-border);
-  background: rgba(15, 23, 42, 0.6);
-  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  background: rgba(15, 24, 39, 0.4);
+  padding: 0.35rem 0.5rem;
 }
 
 input:focus-visible,
 select:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 h1,
@@ -100,20 +94,8 @@ dd {
   margin: 0;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
-    --color-bg: #f1f5f9;
-    --color-surface: #ffffff;
-    --color-surface-alt: #f8fafc;
-    --color-border: #1d4ed8;
-    --color-card-border: rgba(148, 163, 184, 0.35);
-    --color-text: #0f172a;
-    --color-subtle: #475569;
-  }
-
+@media (max-width: 640px) {
   body {
-    background: radial-gradient(circle at top, rgba(59, 130, 246, 0.16), transparent 60%),
-      var(--color-bg);
+    overflow: hidden;
   }
 }

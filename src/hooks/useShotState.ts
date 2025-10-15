@@ -37,7 +37,7 @@ export const useShotState = (options: UseShotStateOptions = {}): ShotStateApi =>
     (value: number) => {
       setShotInternal((previous) => ({
         ...previous,
-        azimuth: degrees(clamp(value, -90, 90)),
+        azimuth: degrees(((value % 360) + 360) % 360),
       }));
     },
     [],

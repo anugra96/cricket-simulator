@@ -2,12 +2,15 @@ import type {
   Batsman,
   FieldConfig,
   InterceptionResult,
+  Seconds,
   ShotOutcome,
   SimulationSample,
 } from '@types';
 
-const TURN_BUFFER = 0.75;
-const AGGRESSIVE_RUN_MARGIN = 0.6;
+const TURN_BUFFER = 0.55;
+const DOUBLE_MARGIN = 0.45;
+const TRIPLE_MARGIN = 0.6;
+const STOPPING_MARGIN = 0.8;
 const MAX_RUNNING_SPEED = 8.1;
 
 export interface OutcomeContext {
@@ -17,6 +20,10 @@ export interface OutcomeContext {
   isSix?: boolean;
   interception?: InterceptionResult;
   stopSample: SimulationSample;
+  caughtInfo?: {
+    fielderId: string;
+    time: Seconds;
+  };
 }
 
 const averageRunnerSpeed = (batsmen: Batsman[]): number => {
@@ -36,8 +43,8 @@ const timeForRuns = (batsmen: Batsman[], fieldConfig: FieldConfig): number[] => 
   const avgSpeed = averageRunnerSpeed(batsmen);
   const runDistance = fieldConfig.pitchLength as number;
   const single = runDistance / avgSpeed + TURN_BUFFER;
-  const double = single * 2 + AGGRESSIVE_RUN_MARGIN;
-  const triple = double + single + AGGRESSIVE_RUN_MARGIN;
+  const double = single * 2 + DOUBLE_MARGIN;
+  const triple = double + single + TRIPLE_MARGIN;
 
   return [single, double, triple];
 };
@@ -68,7 +75,19 @@ export const estimateRuns = ({
   isSix,
   interception,
   stopSample,
+  caughtInfo,
 }: OutcomeContext): ShotOutcome => {
+  if (caughtInfo) {
+    return {
+      runs: 0,
+      isBoundary: false,
+      isDismissal: true,
+      dismissalType: 'caught',
+      interceptedBy: caughtInfo.fielderId,
+      interceptTime: caughtInfo.time,
+    };
+  }
+
   if (isSix) {
     return {
       runs: 6,
@@ -101,7 +120,7 @@ export const estimateRuns = ({
   }
 
   const stopTime = stopSample.time as number;
-  const runs = runsFromAvailableTime(stopTime + AGGRESSIVE_RUN_MARGIN, batsmen, fieldConfig);
+  const runs = runsFromAvailableTime(stopTime + STOPPING_MARGIN, batsmen, fieldConfig);
 
   return {
     runs,

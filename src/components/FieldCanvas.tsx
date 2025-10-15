@@ -1,4 +1,5 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import type {
   Batsman,
@@ -12,6 +13,7 @@ import '@styles/field.css';
 
 const VIEW_MARGIN = 10;
 const PITCH_WIDTH = 3;
+const EDGE_BUFFER = 1.5;
 
 const toPoint = (x: number, y: number): string => `${x.toFixed(2)},${(-y).toFixed(2)}`;
 
@@ -27,6 +29,7 @@ const FieldCanvasComponent = ({
   batsmen,
   boundarySample,
   interception,
+  onFielderPositionChange,
 }: {
   field: FieldConfig;
   path: SimulationPath;
@@ -34,7 +37,11 @@ const FieldCanvasComponent = ({
   batsmen: Batsman[];
   boundarySample?: SimulationSample;
   interception?: InterceptionResult;
+  onFielderPositionChange?: (id: string, position: { x: number; y: number }) => void;
 }) => {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [dragging, setDragging] = useState<{ id: string; pointerId: number } | null>(null);
+
   const radius = (field.boundaryRadius as number) + VIEW_MARGIN;
   const viewBox = `${-radius} ${-radius} ${radius * 2} ${radius * 2}`;
   const pitchHalfLength = (field.pitchLength as number) / 2;
@@ -76,12 +83,90 @@ const FieldCanvasComponent = ({
     ? toCircle(bounceSample.position.x as number, bounceSample.position.y as number)
     : undefined;
 
+  const clampToField = useCallback(
+    (x: number, y: number): { x: number; y: number } => {
+      const maxRadius = Math.max(boundaryRadius - EDGE_BUFFER, 1);
+      const distance = Math.hypot(x, y);
+      if (distance <= maxRadius) {
+        return { x, y };
+      }
+      const scale = maxRadius / distance;
+      return { x: x * scale, y: y * scale };
+    },
+    [boundaryRadius],
+  );
+
+  const toFieldCoordinates = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const svg = svgRef.current;
+      if (!svg) {
+        return null;
+      }
+      const rect = svg.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        return null;
+      }
+      const view = svg.viewBox.baseVal;
+      const xRatio = (clientX - rect.left) / rect.width;
+      const yRatio = (clientY - rect.top) / rect.height;
+      const svgX = view.x + xRatio * view.width;
+      const svgY = view.y + yRatio * view.height;
+      const fieldX = svgX;
+      const fieldY = -svgY;
+      return clampToField(fieldX, fieldY);
+    },
+    [clampToField],
+  );
+
+  const updateDragPosition = useCallback(
+    (id: string, clientX: number, clientY: number) => {
+      if (!onFielderPositionChange) {
+        return;
+      }
+      const fieldPoint = toFieldCoordinates(clientX, clientY);
+      if (!fieldPoint) {
+        return;
+      }
+      onFielderPositionChange(id, fieldPoint);
+    },
+    [onFielderPositionChange, toFieldCoordinates],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      if (!dragging || event.pointerId !== dragging.pointerId) {
+        return;
+      }
+      event.preventDefault();
+      updateDragPosition(dragging.id, event.clientX, event.clientY);
+    },
+    [dragging, updateDragPosition],
+  );
+
+  const endDrag = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      if (dragging && event.pointerId === dragging.pointerId) {
+        const svg = svgRef.current;
+        if (svg && svg.hasPointerCapture(event.pointerId)) {
+          svg.releasePointerCapture(event.pointerId);
+        }
+        setDragging(null);
+      }
+    },
+    [dragging],
+  );
+
   return (
     <svg
       className="field-canvas"
       viewBox={viewBox}
       role="img"
       aria-label="Top-down view of the cricket field showing the simulated ball path and player positions"
+      ref={svgRef}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onPointerLeave={endDrag}
     >
       <defs>
         <radialGradient id="field-gradient" cx="50%" cy="50%" r="75%">
@@ -191,8 +276,28 @@ const FieldCanvasComponent = ({
 
       {fielders.map((fielder) => {
         const { cx, cy } = toCircle(fielder.position.x as number, fielder.position.y as number);
+        const isDragging = dragging?.id === fielder.id;
         return (
-          <g key={fielder.id} className="player fielder" aria-label={`${fielder.name} fielder`}>
+          <g
+            key={fielder.id}
+            className={`player fielder${onFielderPositionChange ? ' is-draggable' : ''}${
+              isDragging ? ' is-dragging' : ''
+            }`}
+            aria-label={`${fielder.name} fielder`}
+            onPointerDown={(event) => {
+              if (!onFielderPositionChange) {
+                return;
+              }
+              event.preventDefault();
+              event.stopPropagation();
+              const svg = svgRef.current;
+              if (svg) {
+                svg.setPointerCapture(event.pointerId);
+              }
+              setDragging({ id: fielder.id, pointerId: event.pointerId });
+              updateDragPosition(fielder.id, event.clientX, event.clientY);
+            }}
+          >
             <circle cx={cx} cy={cy} r={2.2} />
             {fielder.number !== undefined && (
               <text x={cx} y={cy + 3.4} textAnchor="middle">

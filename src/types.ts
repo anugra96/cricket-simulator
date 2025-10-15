@@ -148,8 +148,8 @@ export const createDefaultFielders = (): Fielder[] => [
     number: 4,
     position: { x: meters(35), y: meters(40) },
     reactionTime: seconds(0.9),
-    maxSpeed: metersPerSecond(7.5),
-    acceleration: metersPerSecondSquared(3.6),
+    maxSpeed: metersPerSecond(4.8),
+    acceleration: metersPerSecondSquared(2),
     pickupBuffer: seconds(0.5),
   },
   {
@@ -158,8 +158,8 @@ export const createDefaultFielders = (): Fielder[] => [
     number: 18,
     position: { x: meters(10), y: meters(60) },
     reactionTime: seconds(1),
-    maxSpeed: metersPerSecond(7.2),
-    acceleration: metersPerSecondSquared(3.2),
+    maxSpeed: metersPerSecond(4.5),
+    acceleration: metersPerSecondSquared(1.8),
     pickupBuffer: seconds(0.6),
   },
   {
@@ -168,8 +168,8 @@ export const createDefaultFielders = (): Fielder[] => [
     number: 23,
     position: { x: meters(-25), y: meters(-15) },
     reactionTime: seconds(0.85),
-    maxSpeed: metersPerSecond(7.8),
-    acceleration: metersPerSecondSquared(3.8),
+    maxSpeed: metersPerSecond(5),
+    acceleration: metersPerSecondSquared(2.1),
     pickupBuffer: seconds(0.45),
   },
   {
@@ -178,9 +178,29 @@ export const createDefaultFielders = (): Fielder[] => [
     number: 7,
     position: { x: meters(-15), y: meters(-55) },
     reactionTime: seconds(1.05),
-    maxSpeed: metersPerSecond(7),
-    acceleration: metersPerSecondSquared(3),
+    maxSpeed: metersPerSecond(4.4),
+    acceleration: metersPerSecondSquared(1.9),
     pickupBuffer: seconds(0.6),
+  },
+  {
+    id: 'mid-wicket',
+    name: 'Mid Wicket',
+    number: 11,
+    position: { x: meters(-5), y: meters(32) },
+    reactionTime: seconds(0.8),
+    maxSpeed: metersPerSecond(5.1),
+    acceleration: metersPerSecondSquared(2.2),
+    pickupBuffer: seconds(0.4),
+  },
+  {
+    id: 'third-man',
+    name: 'Third Man',
+    number: 27,
+    position: { x: meters(30), y: meters(-40) },
+    reactionTime: seconds(0.95),
+    maxSpeed: metersPerSecond(4.6),
+    acceleration: metersPerSecondSquared(2),
+    pickupBuffer: seconds(0.5),
   },
 ];
 
@@ -189,13 +209,13 @@ export const createDefaultBatsmen = (): Batsman[] => [
     id: 'striker',
     name: 'Striker',
     runnerSpeed: metersPerSecond(6.5),
-    creasePosition: { x: meters(0), y: meters(-DEFAULT_PITCH_LENGTH / 2) },
+    creasePosition: { x: meters(0), y: meters(DEFAULT_PITCH_LENGTH / 2) },
   },
   {
     id: 'non-striker',
     name: 'Non-Striker',
     runnerSpeed: metersPerSecond(6.4),
-    creasePosition: { x: meters(0), y: meters(DEFAULT_PITCH_LENGTH / 2) },
+    creasePosition: { x: meters(0), y: meters(-DEFAULT_PITCH_LENGTH / 2) },
   },
 ];
 
@@ -203,6 +223,6 @@ export const createDefaultShot = (): Shot => ({
   speed: metersPerSecond(30),
   azimuth: degrees(0),
   elevation: degrees(10),
-  launchPosition: { x: meters(0), y: meters(0), z: meters(1) },
+  launchPosition: { x: meters(0), y: meters(DEFAULT_PITCH_LENGTH / 2), z: meters(1) },
   spinRpm: 1500,
 });
