@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import type {
@@ -14,6 +14,8 @@ import '@styles/field.css';
 const VIEW_MARGIN = 10;
 const PITCH_WIDTH = 3;
 const EDGE_BUFFER = 1.5;
+const RUN_SPEED_MIN = 3.2;
+const CHASE_DISTANCE_BUFFER = 12;
 
 const toPoint = (x: number, y: number): string => `${x.toFixed(2)},${(-y).toFixed(2)}`;
 
@@ -41,6 +43,90 @@ const FieldCanvasComponent = ({
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [dragging, setDragging] = useState<{ id: string; pointerId: number } | null>(null);
+  const [animationTime, setAnimationTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const animationFrameRef = useRef<number | null>(null);
+  const lastTimestampRef = useRef<number | undefined>(undefined);
+  const animationTimeRef = useRef(0);
+  const maxTimeRef = useRef(0);
+  const playingRef = useRef(false);
+  const [fielderPositions, setFielderPositions] = useState(
+    () =>
+      fielders.map((fielder) => ({
+        id: fielder.id,
+        x: fielder.position.x as number,
+        y: fielder.position.y as number,
+      })),
+  );
+  const initialFielderPositionsRef = useRef(
+    fielders.map((fielder) => ({
+      id: fielder.id,
+      x: fielder.position.x as number,
+      y: fielder.position.y as number,
+    })),
+  );
+
+  const stopAnimation = useCallback(() => {
+    playingRef.current = false;
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, []);
+
+  const startAnimation = useCallback(() => {
+    stopAnimation();
+    if (path.length === 0) {
+      setAnimationTime(0);
+      setIsPlaying(false);
+      return;
+    }
+
+    animationTimeRef.current = 0;
+    maxTimeRef.current = path[path.length - 1].time as number;
+    lastTimestampRef.current = undefined;
+    playingRef.current = true;
+    setAnimationTime(0);
+    setIsPlaying(true);
+
+    const step = (timestamp: number) => {
+      if (!playingRef.current) {
+        return;
+      }
+      if (lastTimestampRef.current === undefined) {
+        lastTimestampRef.current = timestamp;
+      }
+      const delta = (timestamp - lastTimestampRef.current) / 1000;
+      lastTimestampRef.current = timestamp;
+
+      const nextTime = Math.min(animationTimeRef.current + delta, maxTimeRef.current);
+      animationTimeRef.current = nextTime;
+      setAnimationTime(nextTime);
+
+      if (nextTime >= maxTimeRef.current) {
+        playingRef.current = false;
+        setIsPlaying(false);
+        animationFrameRef.current = null;
+        return;
+      }
+
+      animationFrameRef.current = requestAnimationFrame(step);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(step);
+  }, [path, stopAnimation]);
+
+  useEffect(() => {
+    startAnimation();
+
+    return () => {
+      stopAnimation();
+    };
+  }, [path, startAnimation, stopAnimation]);
+
+  const handleReplay = useCallback(() => {
+    startAnimation();
+  }, [startAnimation]);
 
   const radius = (field.boundaryRadius as number) + VIEW_MARGIN;
   const viewBox = `${-radius} ${-radius} ${radius * 2} ${radius * 2}`;
@@ -83,6 +169,146 @@ const FieldCanvasComponent = ({
     ? toCircle(bounceSample.position.x as number, bounceSample.position.y as number)
     : undefined;
 
+  const ballState = useMemo<
+    { x: number; y: number; height: number; phase: SimulationSample['phase'] } | null
+  >(() => {
+    if (path.length === 0) {
+      return null;
+    }
+    const lastSample = path[path.length - 1];
+    const targetTime = Math.min(animationTime, lastSample.time as number);
+
+    if (targetTime <= (path[0].time as number)) {
+      return {
+        x: path[0].position.x as number,
+        y: path[0].position.y as number,
+        height: path[0].position.z as number,
+        phase: path[0].phase,
+      };
+    }
+
+    let nextIndex = path.findIndex((sample) => (sample.time as number) >= targetTime);
+    if (nextIndex === -1) {
+      return {
+        x: lastSample.position.x as number,
+        y: lastSample.position.y as number,
+        height: lastSample.position.z as number,
+        phase: lastSample.phase,
+      };
+    }
+    if (nextIndex === 0) {
+      nextIndex = 1;
+    }
+
+    const prevSample = path[nextIndex - 1];
+    const nextSample = path[nextIndex];
+    const prevTime = prevSample.time as number;
+    const nextTime = nextSample.time as number;
+    const span = nextTime - prevTime || 1;
+    const ratio = Math.min(Math.max((targetTime - prevTime) / span, 0), 1);
+
+    const interpolate = (a: number, b: number) => a + (b - a) * ratio;
+
+    return {
+      x: interpolate(prevSample.position.x as number, nextSample.position.x as number),
+      y: interpolate(prevSample.position.y as number, nextSample.position.y as number),
+      height: interpolate(prevSample.position.z as number, nextSample.position.z as number),
+      phase: ratio < 0.5 ? prevSample.phase : nextSample.phase,
+    };
+  }, [path, animationTime]);
+
+  const maxHeight = useMemo(() => {
+    if (path.length === 0) {
+      return 0;
+    }
+    return Math.max(...path.map((sample) => sample.position.z as number));
+  }, [path]);
+
+  const ballPosition = ballState ? toCircle(ballState.x, ballState.y) : undefined;
+  const ballRadius = useMemo(() => {
+    if (!ballState) {
+      return 0;
+    }
+    const normalized =
+      maxHeight > 0 ? Math.min(Math.max(ballState.height / maxHeight, 0), 1) : 0;
+    const MIN_RADIUS = 1;
+    const MAX_RADIUS = 2.4;
+    return MIN_RADIUS + (MAX_RADIUS - MIN_RADIUS) * normalized;
+  }, [ballState, maxHeight]);
+
+  useEffect(() => {
+    const basePositions = fielders.map((fielder) => ({
+      id: fielder.id,
+      x: fielder.position.x as number,
+      y: fielder.position.y as number,
+    }));
+    initialFielderPositionsRef.current = basePositions;
+    setFielderPositions(basePositions);
+  }, [fielders, path]);
+
+  useEffect(() => {
+    if (!ballState) {
+      setFielderPositions(initialFielderPositionsRef.current);
+      return;
+    }
+
+    const ballX = ballState.x;
+    const ballY = ballState.y;
+    const basePositions = initialFielderPositionsRef.current;
+
+    const distances = basePositions.map((pos) => Math.hypot(ballX - pos.x, ballY - pos.y));
+    const minDistance = distances.length > 0 ? Math.min(...distances) : 0;
+
+    const nextPositions = fielders.map((fielder, index) => {
+      const basePos = basePositions[index] ?? {
+        id: fielder.id,
+        x: fielder.position.x as number,
+        y: fielder.position.y as number,
+      };
+      const startX = basePos.x;
+      const startY = basePos.y;
+
+      const distanceToBall = distances[index] ?? 0;
+      const isIntercepting = interception?.fielderId === fielder.id;
+      const shouldChase =
+        isIntercepting || distanceToBall <= minDistance + CHASE_DISTANCE_BUFFER;
+
+      if (!shouldChase) {
+        return { id: fielder.id, x: startX, y: startY };
+      }
+
+      const targetX =
+        isIntercepting && interception?.interceptPosition
+          ? (interception.interceptPosition.x as number)
+          : ballX;
+      const targetY =
+        isIntercepting && interception?.interceptPosition
+          ? (interception.interceptPosition.y as number)
+          : ballY;
+
+      const vectorX = targetX - startX;
+      const vectorY = targetY - startY;
+      const baseDistance = Math.hypot(vectorX, vectorY);
+
+      if (baseDistance <= 0.01) {
+        return { id: fielder.id, x: targetX, y: targetY };
+      }
+
+      const baseSpeed = Math.max(fielder.maxSpeed as number, RUN_SPEED_MIN);
+      const normalized = Math.min(Math.max(baseDistance / Math.max(boundaryRadius, 1), 0), 1);
+      const effectiveSpeed = baseSpeed * normalized;
+      const travel = effectiveSpeed * Math.max(animationTime, 0);
+      const ratio = Math.min(travel / baseDistance, 1);
+
+      return {
+        id: fielder.id,
+        x: startX + vectorX * ratio,
+        y: startY + vectorY * ratio,
+      };
+    });
+
+    setFielderPositions(nextPositions);
+  }, [fielders, ballState, interception, animationTime, boundaryRadius]);
   const clampToField = useCallback(
     (x: number, y: number): { x: number; y: number } => {
       const maxRadius = Math.max(boundaryRadius - EDGE_BUFFER, 1);
@@ -157,12 +383,21 @@ const FieldCanvasComponent = ({
   );
 
   return (
-    <svg
-      className="field-canvas"
-      viewBox={viewBox}
-      role="img"
-      aria-label="Top-down view of the cricket field showing the simulated ball path and player positions"
-      ref={svgRef}
+    <div className="field-viewport">
+      <button
+        type="button"
+        className="play-toggle"
+        onClick={handleReplay}
+        disabled={isPlaying}
+      >
+        {isPlaying ? 'Playing…' : 'Replay'}
+      </button>
+      <svg
+        className="field-canvas"
+        viewBox={viewBox}
+        role="img"
+        aria-label="Top-down view of the cricket field showing the simulated ball path and player positions"
+        ref={svgRef}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
@@ -259,6 +494,16 @@ const FieldCanvasComponent = ({
         </g>
       )}
 
+      {ballPosition && (
+        <circle
+          className={`ball-marker${ballState?.phase === 'flight' ? ' is-flight' : ' is-ground'}`}
+          cx={ballPosition.cx}
+          cy={ballPosition.cy}
+          r={ballRadius}
+          aria-label="Animated ball position"
+        />
+      )}
+
       {batsmen.map((batsman) => {
         const { cx, cy } = toCircle(
           batsman.creasePosition.x as number,
@@ -274,8 +519,16 @@ const FieldCanvasComponent = ({
         );
       })}
 
-      {fielders.map((fielder) => {
-        const { cx, cy } = toCircle(fielder.position.x as number, fielder.position.y as number);
+      {fielderPositions.map((position) => {
+        const fielder = fielders.find((item) => item.id === position.id);
+        if (!fielder) {
+          return null;
+        }
+        const displayX =
+          dragging?.id === fielder.id ? (fielder.position.x as number) : position.x;
+        const displayY =
+          dragging?.id === fielder.id ? (fielder.position.y as number) : position.y;
+        const { cx, cy } = toCircle(displayX, displayY);
         const isDragging = dragging?.id === fielder.id;
         return (
           <g
@@ -308,6 +561,7 @@ const FieldCanvasComponent = ({
         );
       })}
     </svg>
+    </div>
   );
 };
 
